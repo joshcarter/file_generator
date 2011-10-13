@@ -18,15 +18,13 @@ private
   end
   
   def random_block(f)
-    BLOCK_SIZE.times { f.write (rand 256).chr }
+    BLOCK_SIZE.times { f.write((rand 256).chr) }
   end
 
   def fill(f, size, randomness)
     blocks = (size / BLOCK_SIZE)
     random_blocks = (blocks * randomness).to_i
     pattern_blocks = blocks - random_blocks
-    
-    puts "randomness = #{randomness}, rand blocks #{random_blocks}, pattern blocks #{pattern_blocks}"
     
     blocks.times do
       if random_blocks.zero?
