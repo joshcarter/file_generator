@@ -1,4 +1,4 @@
-require 'FileUtils'
+require 'fileutils'
 require './test_file'
 
 class TestTree

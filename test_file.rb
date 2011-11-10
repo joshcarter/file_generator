@@ -3,6 +3,10 @@ class TestFile
   PATTERN_BLOCK = 'A' * BLOCK_SIZE
   
   def initialize(dir, size, randomness = 0.5)
+    if (size < BLOCK_SIZE)
+      raise "I can only create files in multiples of #{BLOCK_SIZE} bytes"
+    end
+
     Dir.chdir(dir) do |path|
       # Sequentially number files
       file_name = sprintf "%08d.tst", (Dir["*.tst"].length + 1)
