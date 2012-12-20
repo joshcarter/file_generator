@@ -34,6 +34,7 @@ class FileList
     num_files.times do |i|
       dir = dirs[rand(0...dirs.length)]
       path = "#{dir}/file#{i + 1}.dat"
+      mtime = opts[:time_base] ? opts[:time_base] + i : Time.now
       size = size_dist.positive_rand.to_i
 
       # Note, we could have some zero-length files at the very end
@@ -41,7 +42,7 @@ class FileList
       size = size < total_size ? size : total_size
       total_size -= size
 
-      @files << { path: path, size: size }
+      @files << { path: path, size: size, mtime: mtime }
     end
 
     self
@@ -53,6 +54,7 @@ class FileList
 
   def create!(opts)
     @files.each do |file|
+      opts[:mtime] = file[:mtime]
       TestFile.new file[:path], file[:size], opts
     end
   end

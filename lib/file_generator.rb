@@ -95,6 +95,9 @@ else
   raise OptionParser::MissingArgument, "Must specify two of: number of files (--files), avg size (--filesize), and total size (--size)"
 end
 
+# Now that we know how many files there are, we can set the modtime base.
+options[:time_base] ||= Time.now - options[:num_files]
+
 FileUtils.mkdir_p options[:directory]
 Dir.chdir(options[:directory]) do
   File.open(".settings.yaml", "w") { |f| f.write YAML.dump(options) }

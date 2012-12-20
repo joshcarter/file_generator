@@ -1,19 +1,39 @@
 class TestFile
-  BLOCK_SIZE = 256
+  BLOCK_SIZE = 65536
   PATTERN_BLOCK = 'A' * BLOCK_SIZE
+  @@randseq_warning = true
 
   def initialize(path, size, opts = {})
     opts[:randomness] ||= 0.5
 
     dir = File.dirname path
     name = File.basename path
+    start_time = Time.now
 
     Dir.chdir(dir) do |d|
       File.open(name, "w") { |f| fill(f, size, opts) }
+      log(path, size, start_time, Time.now)
+      
+      if opts[:mtime]
+        File.utime(opts[:mtime], opts[:mtime], name)
+      end        
     end
   end
 
 private
+
+  def log(path, size, start_time, end_time)
+    scales = ['B/s', 'KiB/s', 'MiB/s', 'GiB/s']
+    end_time = Time.now
+    bandwidth = size.to_f / (end_time - start_time)
+    
+    while (bandwidth > 1000 && scales.length > 1)
+      bandwidth /= 1024
+      scales.shift
+    end
+    
+    STDOUT.puts sprintf("Created %-50s (%0.1f %s)", path, bandwidth, scales.first)
+  end
 
   def fill(f, size, opts)
     begin
@@ -28,6 +48,12 @@ private
       random_leftover =  -> f, n { f.write byteseq.next[0...n] }
     rescue LoadError
       # Fall back to pure-Ruby generator
+      if @@randseq_warning
+        STDERR.puts "INFO: Using pre-ruby random generator; recommend using ext/randseq!"
+        STDERR.puts "INFO: cd ext; ruby extconf.rb; make"
+        @@randseq_warning = false
+      end
+      
       pattern_block =    -> f { f.write PATTERN_BLOCK }
       random_block =     -> f { BLOCK_SIZE.times { f.write((rand 256).chr) } }
       pattern_leftover = -> f, n { f.write PATTERN_BLOCK[0...n] }
