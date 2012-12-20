@@ -2,6 +2,7 @@ class TestFile
   BLOCK_SIZE = 65536
   PATTERN_BLOCK = 'A' * BLOCK_SIZE
   @@randseq_warning = true
+  @@logs = []
 
   def initialize(path, size, opts = {})
     opts[:randomness] ||= 0.5
@@ -23,16 +24,31 @@ class TestFile
 private
 
   def log(path, size, start_time, end_time)
-    scales = ['B/s', 'KiB/s', 'MiB/s', 'GiB/s']
-    end_time = Time.now
-    bandwidth = size.to_f / (end_time - start_time)
-    
-    while (bandwidth > 1000 && scales.length > 1)
-      bandwidth /= 1024
-      scales.shift
+    # Track recent files created
+    @@logs << [size, end_time - start_time]
+
+    if @@logs.length > 1000
+      @@logs.slice! 0, @@logs.length - 1000
+    end
+
+    total_bytes, total_time = @@logs.reduce([0, 0]) do |acc, i|
+      [acc[0] + i[0], acc[1] + i[1]]
     end
     
-    STDOUT.puts sprintf("Created %-50s (%0.1f %s)", path, bandwidth, scales.first)
+    # Let system get going for a few seconds before logging bandwidth.
+    if total_time > 5.0
+      scales = ['B/s', 'KiB/s', 'MiB/s', 'GiB/s']
+      bandwidth = total_bytes.to_f / total_time
+    
+      while (bandwidth > 1000 && scales.length > 1)
+        bandwidth /= 1024
+        scales.shift
+      end
+    
+      STDOUT.puts sprintf("Created %-50s (%0.1f %s)", path, bandwidth, scales.first)
+    else
+      STDOUT.puts sprintf("Created %-50s", path)
+    end
   end
 
   def fill(f, size, opts)
