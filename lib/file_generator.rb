@@ -7,62 +7,83 @@ require 'yaml'
 require_relative 'directory_list'
 require_relative 'file_list'
 
-options = {}
+#
+# Parse options put on the command line
+#
+opts_file = '.options.yaml'
+opts = {}
 
-option_parser = OptionParser.new do |opts|
-  opts.on("-d DIR", "--directory DIR", "Directory to place test files in") do |param|
-    options[:directory] = param
+option_parser = OptionParser.new do |o|
+  o.on("-d DIR", "--directory DIR", "Directory to place test files in") do |param|
+    opts[:directory] = param
   end
 
-  opts.on("-s SIZE", "--size SIZE", "Total size of test files") do |param|
-    options[:size] = param
+  o.on("-s SIZE", "--size SIZE", "Total size of test files") do |param|
+    opts[:size] = param
   end
 
-  opts.on("-f FILE_SIZE", "--filesize FILE_SIZE", "Average size of individual files") do |param|
-    options[:file_size] = param
+  o.on("-f FILE_SIZE", "--filesize FILE_SIZE", "Average size of individual files") do |param|
+    opts[:file_size] = param
   end
 
-  opts.on("-n NUM_FILES", "--files NUM_FILES", "Number of individual files") do |param|
-    options[:num_files] = param.to_i
+  o.on("-n NUM_FILES", "--files NUM_FILES", "Number of individual files") do |param|
+    opts[:num_files] = param.to_i
   end
 
-  opts.on("--depth DEPTH", "Maximum depth of directory heirachry") do |param|
-    options[:depth] = param.to_i
+  o.on("--depth DEPTH", "Maximum depth of directory heirachry") do |param|
+    opts[:depth] = param.to_i
   end
 
-  opts.on("--dirs NUM_DIRS", "Total number of directories") do |param|
-    options[:num_dirs] = param.to_i
+  o.on("--dirs NUM_DIRS", "Total number of directories") do |param|
+    opts[:num_dirs] = param.to_i
   end
 
-  opts.on("--seed SEED", "Random seed") do |param|
-    options[:seed] = param.to_i
+  o.on("--seed SEED", "Random seed") do |param|
+    opts[:seed] = param.to_i
   end
 end
 
 option_parser.parse!
 
-# TODO: merge in saved options here
+#
+# Merge any saved options from the saved opts file. Where opts are
+# specified in both places, command line opt is taken.
+#
+opts_file2 = if opts[:directory]
+  File.join opts[:directory], opts_file
+else
+  File.join Dir.getwd, opts_file
+end
 
-# Defaults
-options[:depth] ||= 1
-options[:seed] ||= 0
-options[:num_dirs] ||= 10
+if File.exists? opts_file2
+  puts "Loading saved options from #{opts_file2}..."
+  opts = YAML.load(File.read opts_file2).merge(opts)
+end
 
 #
-# Validate options
+# Option defaults.
 #
-unless options.has_key? :directory
+opts[:depth] ||= 1
+opts[:seed] ||= 0
+opts[:num_dirs] ||= 10
+
+#
+# Validate opts
+#
+unless opts.has_key? :directory
   raise OptionParser::MissingArgument, "Must specify destination directory (-d)"
 end
 
-if options.has_key?(:num_files) and options.has_key?(:file_size) and options.has_key(:size)
-  raise OptionParser::MissingArgument, "Must specify two of: number of files (--files), avg size (--filesize), and total size (--size)"
-end
+# NOTE: all 3 will be true when we're loading an external settings file
+# if opts.has_key?(:num_files) and opts.has_key?(:file_size) and opts.has_key?(:size)
+#   raise OptionParser::MissingArgument, "Must specify two of: number of files (--files), avg size (--filesize), and total size (--size)"
+# end
 
 [:size, :file_size].each do |opt|
-  next unless options.has_key?(opt)
+  next unless opts.has_key?(opt)
+  next unless opts[opt].is_a? String
 
-  md = options[opt].match(/(\d+)([bkmgt])/)
+  md = opts[opt].match(/(\d+)([bkmgt])/)
 
   unless md
     raise OptionParser::InvalidArgument, "Sizes must be numeric plus scale, [xxx][bkmgt]"
@@ -78,43 +99,43 @@ end
     when "t", "T" then 1024 * 1024 * 1024 * 1024
   end
 
-  options[opt] = size
+  opts[opt] = size
 end
 
 #
 # User specifies two of: 1) total output size, 2) avg file size,
 # 3) number of files. Given two, compute the third.
 #
-if options.has_key?(:size) and options.has_key?(:num_files)
-  options[:file_size] = options[:size] / options[:num_files]
-elsif options.has_key?(:size) and options.has_key?(:file_size)
-  options[:num_files] = options[:size] / options[:file_size]
-elsif options.has_key?(:num_files) and options.has_key?(:file_size)
-  options[:size] = options[:num_files] * options[:file_size]
+if opts.has_key?(:size) and opts.has_key?(:num_files)
+  opts[:file_size] = opts[:size] / opts[:num_files]
+elsif opts.has_key?(:size) and opts.has_key?(:file_size)
+  opts[:num_files] = opts[:size] / opts[:file_size]
+elsif opts.has_key?(:num_files) and opts.has_key?(:file_size)
+  opts[:size] = opts[:num_files] * opts[:file_size]
 else
   raise OptionParser::MissingArgument, "Must specify two of: number of files (--files), avg size (--filesize), and total size (--size)"
 end
 
 # Now that we know how many files there are, we can set the modtime base.
-options[:time_base] ||= Time.now - options[:num_files]
+opts[:time_base] ||= Time.now - opts[:num_files]
 
-FileUtils.mkdir_p options[:directory]
-Dir.chdir(options[:directory]) do
-  File.open(".settings.yaml", "w") { |f| f.write YAML.dump(options) }
+FileUtils.mkdir_p opts[:directory]
+Dir.chdir(opts[:directory]) do
+  File.open(opts_file, "w") { |f| f.write YAML.dump(opts) }
 
   #
   # Build directory
   #
   dl = DirectoryList.new
-  dl.populate options
+  dl.populate opts
   dl.create!
 
-  options[:dirs] = dl.to_a
+  opts[:dirs] = dl.to_a
 
   #
   # Lay out files within directories
   #
   fl = FileList.new
-  fl.populate options
-  fl.create! options
+  fl.populate opts
+  fl.create! opts
 end

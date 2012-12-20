@@ -1,8 +1,6 @@
 # TODO
 
-- Save options, reuse if .settings.yaml is present -- goal is to allow control-c and restart
-
-- Use randomseq to generate random blocks, create sequential block generator
+- Help when run with no options.
 
 
 # Simple File Generator

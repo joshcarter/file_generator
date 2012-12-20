@@ -4,16 +4,20 @@ class TestFile
   @@randseq_warning = true
   @@logs = []
 
-  def initialize(path, size, opts = {})
+  def initialize(opts)
     opts[:randomness] ||= 0.5
 
-    dir = File.dirname path
-    name = File.basename path
+    dir = File.dirname opts[:path]
+    name = File.basename opts[:path]
     start_time = Time.now
 
     Dir.chdir(dir) do |d|
-      File.open(name, "w") { |f| fill(f, size, opts) }
-      log(path, size, start_time, Time.now)
+      if File.exists?(name) and File.stat(name).size == opts[:size]
+        break
+      end
+      
+      File.open(name, "w") { |f| fill(f, opts) }
+      log(opts[:path], opts[:size], start_time, Time.now)
       
       if opts[:mtime]
         File.utime(opts[:mtime], opts[:mtime], name)
@@ -51,7 +55,7 @@ private
     end
   end
 
-  def fill(f, size, opts)
+  def fill(f, opts)
     begin
       # Use C-based random sequence generator if it's available.
       require_relative '../ext/randseq'
@@ -70,14 +74,16 @@ private
         @@randseq_warning = false
       end
       
+      srand opts[:seed]
+      
       pattern_block =    -> f { f.write PATTERN_BLOCK }
       random_block =     -> f { BLOCK_SIZE.times { f.write((rand 256).chr) } }
       pattern_leftover = -> f, n { f.write PATTERN_BLOCK[0...n] }
       random_leftover =  -> f, n { n.times { f.write((rand 256).chr) } }
     end
 
-    blocks = (size / BLOCK_SIZE)
-    leftover = (size % BLOCK_SIZE)
+    blocks = opts[:size] / BLOCK_SIZE
+    leftover = opts[:size] % BLOCK_SIZE
     random_blocks = (blocks * opts[:randomness]).to_i
     pattern_blocks = blocks - random_blocks
 
