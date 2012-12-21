@@ -42,8 +42,6 @@ This will improve file generation speed by a factor of 50. Neither the Ruby nor 
 
 If `file_generator` is run with the same options repeatedly, it will generate the same file/directory layout. It won't regenerate files that it already wrote on a previous pass. If you need to control-c the tool, just run it again and it'll pick up where it left off.
 
-When run, `file_generator` will save its options in the target directory. If run again from that directory, or with the `--directory` option, it will load the saved options from its prior run. Options provided on the command line take precedence over saved options.
-
 ## License
 
 `file_generator` is copyright 2012 by Spectra Logic. It may be redistributed under the same terms as Ruby 1.9.

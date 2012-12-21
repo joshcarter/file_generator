@@ -10,7 +10,6 @@ require_relative 'file_list'
 #
 # Parse options put on the command line
 #
-opts_file = '.options.yaml'
 opts = {}
 
 option_parser = OptionParser.new do |o|
@@ -50,21 +49,6 @@ end
 
 begin
   option_parser.parse!
-
-  #
-  # Merge any saved options from the saved opts file. Where opts are
-  # specified in both places, command line opt is taken.
-  #
-  opts_file2 = if opts[:directory]
-    File.join opts[:directory], opts_file
-  else
-    File.join Dir.getwd, opts_file
-  end
-
-  if File.exists? opts_file2
-    puts "Loading saved options from #{opts_file2}..."
-    opts = YAML.load(File.read opts_file2).merge(opts)
-  end
 
   #
   # Option defaults.
@@ -133,8 +117,6 @@ end
 
 FileUtils.mkdir_p opts[:directory]
 Dir.chdir(opts[:directory]) do
-  File.open(opts_file, "w") { |f| f.write YAML.dump(opts) }
-
   #
   # Build directory
   #
