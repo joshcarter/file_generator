@@ -41,83 +41,95 @@ option_parser = OptionParser.new do |o|
   o.on("--seed SEED", "Random seed") do |param|
     opts[:seed] = param.to_i
   end
+  
+  o.on("-h", "--help", "Help") do
+    puts o
+    exit
+  end
 end
 
-option_parser.parse!
+begin
+  option_parser.parse!
 
-#
-# Merge any saved options from the saved opts file. Where opts are
-# specified in both places, command line opt is taken.
-#
-opts_file2 = if opts[:directory]
-  File.join opts[:directory], opts_file
-else
-  File.join Dir.getwd, opts_file
-end
-
-if File.exists? opts_file2
-  puts "Loading saved options from #{opts_file2}..."
-  opts = YAML.load(File.read opts_file2).merge(opts)
-end
-
-#
-# Option defaults.
-#
-opts[:depth] ||= 1
-opts[:seed] ||= 0
-opts[:num_dirs] ||= 10
-
-#
-# Validate opts
-#
-unless opts.has_key? :directory
-  raise OptionParser::MissingArgument, "Must specify destination directory (-d)"
-end
-
-# NOTE: all 3 will be true when we're loading an external settings file
-# if opts.has_key?(:num_files) and opts.has_key?(:file_size) and opts.has_key?(:size)
-#   raise OptionParser::MissingArgument, "Must specify two of: number of files (--files), avg size (--filesize), and total size (--size)"
-# end
-
-[:size, :file_size].each do |opt|
-  next unless opts.has_key?(opt)
-  next unless opts[opt].is_a? String
-
-  md = opts[opt].match(/(\d+)([bkmgt])/)
-
-  unless md
-    raise OptionParser::InvalidArgument, "Sizes must be numeric plus scale, [xxx][bkmgt]"
+  #
+  # Merge any saved options from the saved opts file. Where opts are
+  # specified in both places, command line opt is taken.
+  #
+  opts_file2 = if opts[:directory]
+    File.join opts[:directory], opts_file
+  else
+    File.join Dir.getwd, opts_file
   end
 
-  size, scale = md[1].to_i, md[2]
-
-  size *= case scale
-    when "b", "B" then 1
-    when "k", "K" then 1024
-    when "m", "M" then 1024 * 1024
-    when "g", "G" then 1024 * 1024 * 1024
-    when "t", "T" then 1024 * 1024 * 1024 * 1024
+  if File.exists? opts_file2
+    puts "Loading saved options from #{opts_file2}..."
+    opts = YAML.load(File.read opts_file2).merge(opts)
   end
 
-  opts[opt] = size
-end
+  #
+  # Option defaults.
+  #
+  opts[:depth] ||= 1
+  opts[:seed] ||= 0
+  opts[:num_dirs] ||= 10
 
-#
-# User specifies two of: 1) total output size, 2) avg file size,
-# 3) number of files. Given two, compute the third.
-#
-if opts.has_key?(:size) and opts.has_key?(:num_files)
-  opts[:file_size] = opts[:size] / opts[:num_files]
-elsif opts.has_key?(:size) and opts.has_key?(:file_size)
-  opts[:num_files] = opts[:size] / opts[:file_size]
-elsif opts.has_key?(:num_files) and opts.has_key?(:file_size)
-  opts[:size] = opts[:num_files] * opts[:file_size]
-else
-  raise OptionParser::MissingArgument, "Must specify two of: number of files (--files), avg size (--filesize), and total size (--size)"
-end
+  #
+  # Validate opts
+  #
+  unless opts.has_key? :directory
+    raise OptionParser::MissingArgument, "Must specify destination directory (-d)"
+  end
 
-# Now that we know how many files there are, we can set the modtime base.
-opts[:time_base] ||= Time.now - opts[:num_files]
+  # NOTE: all 3 will be true when we're loading an external settings file
+  # if opts.has_key?(:num_files) and opts.has_key?(:file_size) and opts.has_key?(:size)
+  #   raise OptionParser::MissingArgument, "Must specify two of: number of files (--files), avg size (--filesize), and total size (--size)"
+  # end
+
+  [:size, :file_size].each do |opt|
+    next unless opts.has_key?(opt)
+    next unless opts[opt].is_a? String
+
+    md = opts[opt].match(/(\d+)([bkmgt])/)
+
+    unless md
+      raise OptionParser::InvalidArgument, "Sizes must be numeric plus scale, [xxx][bkmgt]"
+    end
+
+    size, scale = md[1].to_i, md[2]
+
+    size *= case scale
+      when "b", "B" then 1
+      when "k", "K" then 1024
+      when "m", "M" then 1024 * 1024
+      when "g", "G" then 1024 * 1024 * 1024
+      when "t", "T" then 1024 * 1024 * 1024 * 1024
+    end
+
+    opts[opt] = size
+  end
+
+  #
+  # User specifies two of: 1) total output size, 2) avg file size,
+  # 3) number of files. Given two, compute the third.
+  #
+  if opts.has_key?(:size) and opts.has_key?(:num_files)
+    opts[:file_size] = opts[:size] / opts[:num_files]
+  elsif opts.has_key?(:size) and opts.has_key?(:file_size)
+    opts[:num_files] = opts[:size] / opts[:file_size]
+  elsif opts.has_key?(:num_files) and opts.has_key?(:file_size)
+    opts[:size] = opts[:num_files] * opts[:file_size]
+  else
+    raise OptionParser::MissingArgument, "Must specify two of: number of files (--files), avg size (--filesize), and total size (--size)"
+  end
+
+  # Now that we know how many files there are, we can set the modtime base.
+  opts[:time_base] ||= Time.now - opts[:num_files]
+rescue OptionParser::ParseError => e
+  puts "Error: #{e}"
+  puts
+  puts option_parser
+  exit -1
+end
 
 FileUtils.mkdir_p opts[:directory]
 Dir.chdir(opts[:directory]) do
