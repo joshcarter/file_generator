@@ -41,7 +41,7 @@ rb_randseq_new(VALUE klass, VALUE rb_size, VALUE rb_seed)
      */
     self->buf = ALLOC_N(uint8_t, self->size + 16);
 
-    if (rb_seed = Qnil) {
+    if (rb_seed == Qnil) {
         /* Initialized with a couple rounds of the generator. */
         self->next = 0x490c734ad1ccf6e9;
     }
